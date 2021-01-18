@@ -5,31 +5,39 @@ Created on Sun Jan 17 04:43:03 2021
 @author: ran
 """
 
-def read_xyz(xyzfile):
-    """입력된 xyzfile 에서 원소기호와 각좌표를 추출
-    return: list 리턴
-    """
-    with open(xyzfile) as f:
-        symbols = []
-        coords = []
-        for line in f:
-            line = line.strip().split()
-            symbols.append(line[0])
-            coords.append([float(e) for e in line[1:]])
-    return symbols, coords
+import re
+from mmoi_calc import ctab
 
-def read_mol(molfile):
-    """입력된 molfile 에서 원소기호와 좌표를 추출
-    retrun: list 리턴
-    """    
-    with open(molfile)as f:
-        symbols = []
-        coords = []
-        for line in f:
-            if 'V2000' in line:
-                n = int(line[0:3])
-                for nn in range(n):
-                    line = next(f).strip().split()
-                    symbols.append(line[3])
-                    coords.append([float(e) for e in line[:3]])
-        return symbols, coords            
+XYZ_ATOM = re.compile(r'''
+                      (?P<symbol>[A-Z][a-z]?)
+                      \s+
+                      (?P<x>[+-]?\d+.\d+)
+                      \s+
+                      (?P<y>[+-]?\d+.\d+)
+                      \s+
+                      (?P<z>[+-]?\d+.\d+)
+                      (?P<mass_diff>)  # dummy regex for __init__ of ctab.Atom
+                      ''', re.VERBOSE)
+
+class Parser(ctab.Parser):
+    def molfile(self, lines):
+        molecule = super().molfile(lines)
+        molecule.symbols = [a.symbol for a in molecule.atoms]
+        molecule.coords = [list(a.coords) for a in molecule.atoms]
+        return molecule
+    
+    def xyzfile(self, lines):
+        atoms = []
+        for line in lines:
+            atom = XYZ_ATOM.match(line)
+            if not atom:
+                break
+            else:
+                atoms.append(ctab.Atom(atom))
+        molecule = ctab.Molecule(atoms)
+        molecule.symbols = [a.symbol for a in molecule.atoms]
+        molecule.coords = [list(a.coords) for a in molecule.atoms]        
+        return molecule
+    
+
+        
